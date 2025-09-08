@@ -1,0 +1,884 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>行車與停車時間紀錄</title>
+    <style>
+      :root {
+        --primary-color: #2196f3;
+        --success-color: #4caf50;
+        --warning-color: #ff9800;
+        --danger-color: #f44336;
+        --bg-color: #ffffff;
+        --text-color: #333333;
+        --card-bg: #f8f9fa;
+        --border-color: #e0e0e0;
+      }
+
+      [data-theme="dark"] {
+        --bg-color: #121212;
+        --text-color: #ffffff;
+        --card-bg: #1e1e1e;
+        --border-color: #333333;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          sans-serif;
+        margin: 0;
+        padding: 10px;
+        background-color: var(--bg-color);
+        color: var(--text-color);
+        transition: all 0.3s ease;
+      }
+
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+
+      .header {
+        text-align: center;
+        margin-bottom: 20px;
+        position: relative;
+      }
+
+      .theme-toggle {
+        position: absolute;
+        right: 0;
+        top: 0;
+        background: none;
+        border: 2px solid var(--border-color);
+        border-radius: 50px;
+        padding: 8px 15px;
+        cursor: pointer;
+        color: var(--text-color);
+        font-size: 14px;
+        transition: all 0.3s ease;
+      }
+
+      .theme-toggle:hover {
+        background-color: var(--primary-color);
+        color: white;
+        border-color: var(--primary-color);
+      }
+
+      .status-indicator {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 15px 30px;
+        border-radius: 25px;
+        font-size: 18px;
+        font-weight: bold;
+        margin: 20px 0;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .status-driving {
+        background: linear-gradient(135deg, #4caf50, #45a049);
+        color: white;
+        animation: pulse 2s infinite;
+      }
+
+      .status-stopped {
+        background: linear-gradient(135deg, #f44336, #d32f2f);
+        color: white;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          transform: scale(1);
+        }
+        50% {
+          transform: scale(1.05);
+        }
+      }
+
+      .status-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: white;
+        animation: blink 1s infinite;
+      }
+
+      @keyframes blink {
+        0%,
+        50% {
+          opacity: 1;
+        }
+        51%,
+        100% {
+          opacity: 0.3;
+        }
+      }
+
+      #map {
+        height: 400px;
+        width: 100%;
+        border-radius: 10px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        margin-bottom: 20px;
+      }
+
+      .info-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 15px;
+        margin: 20px 0;
+      }
+
+      .info-card {
+        background: var(--card-bg);
+        padding: 20px;
+        border-radius: 10px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        transition: transform 0.3s ease;
+      }
+
+      .info-card:hover {
+        transform: translateY(-5px);
+      }
+
+      .info-card h3 {
+        margin: 0 0 10px 0;
+        font-size: 14px;
+        color: var(--text-color);
+        opacity: 0.7;
+      }
+
+      .info-card .time-display {
+        font-size: 24px;
+        font-weight: bold;
+        color: var(--primary-color);
+      }
+
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        justify-content: center;
+        margin: 20px 0;
+      }
+
+      button {
+        padding: 12px 24px;
+        border: none;
+        border-radius: 25px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), #1976d2);
+        color: white;
+      }
+
+      .btn-success {
+        background: linear-gradient(135deg, var(--success-color), #45a049);
+        color: white;
+      }
+
+      .btn-danger {
+        background: linear-gradient(135deg, var(--danger-color), #d32f2f);
+        color: white;
+      }
+
+      .btn-warning {
+        background: linear-gradient(135deg, var(--warning-color), #f57c00);
+        color: white;
+      }
+
+      button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+      }
+
+      .settings {
+        background: var(--card-bg);
+        padding: 20px;
+        border-radius: 10px;
+        margin: 20px 0;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      .settings h3 {
+        margin-top: 0;
+      }
+
+      .setting-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 10px 0;
+      }
+
+      .setting-item label {
+        min-width: 120px;
+      }
+
+      .setting-item input {
+        flex: 1;
+        padding: 8px 12px;
+        border: 2px solid var(--border-color);
+        border-radius: 5px;
+        background: var(--bg-color);
+        color: var(--text-color);
+      }
+
+      .records-section {
+        margin: 30px 0;
+      }
+
+      .table-container {
+        background: var(--card-bg);
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        padding: 12px;
+        text-align: left;
+        border-bottom: 1px solid var(--border-color);
+      }
+
+      th {
+        background: var(--primary-color);
+        color: white;
+        font-weight: 600;
+      }
+
+      tr:hover {
+        background-color: rgba(33, 150, 243, 0.1);
+      }
+
+      .delete-btn {
+        background: var(--danger-color);
+        color: white;
+        border: none;
+        border-radius: 3px;
+        padding: 4px 8px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+
+      .no-records {
+        text-align: center;
+        padding: 40px;
+        color: var(--text-color);
+        opacity: 0.6;
+      }
+
+      .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 5px;
+        color: white;
+        font-weight: 600;
+        z-index: 1000;
+        transform: translateX(400px);
+        transition: transform 0.3s ease;
+      }
+
+      .notification.show {
+        transform: translateX(0);
+      }
+
+      .notification.success {
+        background: var(--success-color);
+      }
+
+      .notification.info {
+        background: var(--primary-color);
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 5px;
+        }
+
+        #map {
+          height: 300px;
+        }
+
+        .info-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .controls {
+          flex-direction: column;
+          align-items: stretch;
+        }
+
+        button {
+          width: 100%;
+        }
+
+        .theme-toggle {
+          position: static;
+          margin: 10px auto;
+          display: block;
+        }
+
+        table {
+          font-size: 12px;
+        }
+
+        th,
+        td {
+          padding: 8px 4px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h2>🚗 行車與停車時間紀錄</h2>
+        <button class="theme-toggle" onclick="toggleTheme()">
+          🌓 切換主題
+        </button>
+      </div>
+
+      <div class="text-align: center;">
+        <div id="statusIndicator" class="status-indicator status-stopped">
+          <div class="status-dot"></div>
+          <span>車輛已停止</span>
+        </div>
+      </div>
+
+      <div id="map"></div>
+
+      <div class="info-grid">
+        <div class="info-card">
+          <h3>🚗 行車時間</h3>
+          <div class="time-display" id="driveTime">00:00:00</div>
+        </div>
+        <div class="info-card">
+          <h3>🛑 停車時間</h3>
+          <div class="time-display" id="stopTime">00:00:00</div>
+        </div>
+        <div class="info-card">
+          <h3>📊 停車次數</h3>
+          <div class="time-display" id="stopCount">0</div>
+        </div>
+        <div class="info-card">
+          <h3>📍 當前位置</h3>
+          <div class="time-display" id="currentLocation">定位中...</div>
+        </div>
+      </div>
+
+      <div class="settings">
+        <h3>⚙️ 設定</h3>
+        <div class="setting-item">
+          <label>速度閾值 (m/s):</label>
+          <input
+            type="number"
+            id="speedThreshold"
+            value="0.8"
+            step="0.1"
+            min="0"
+            onchange="updateSettings()"
+          />
+        </div>
+        <div class="setting-item">
+          <label>位置變化閾值 (公尺):</label>
+          <input
+            type="number"
+            id="distanceThreshold"
+            value="10"
+            step="1"
+            min="0"
+            onchange="updateSettings()"
+          />
+        </div>
+      </div>
+
+      <div class="controls">
+        <button class="btn-success" onclick="manualDrive()">🚗 手動行車</button>
+        <button class="btn-danger" onclick="manualStop()">🛑 手動停車</button>
+        <button class="btn-warning" onclick="reset()">🔄 重置數據</button>
+        <button class="btn-primary" onclick="centerMap()">
+          📍 回到當前位置
+        </button>
+      </div>
+
+      <div class="records-section">
+        <h3>📝 停車記錄</h3>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>開始時間</th>
+                <th>結束時間</th>
+                <th>持續時間</th>
+                <th>停車地點</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="stopLog">
+              <tr>
+                <td colspan="5" class="no-records">暫無停車記錄</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      let map, polyline, watchId, currentMarker;
+      let driving = false;
+      let driveSeconds = 0,
+        stopSeconds = 0;
+      let stopStart = null;
+      let stopRecords = [];
+      let lastPosition = null;
+      let speedThreshold = 0.8;
+      let distanceThreshold = 10;
+      let stopMarkers = [];
+
+      // 從localStorage載入數據
+      function loadData() {
+        const saved = localStorage.getItem("drivingData");
+        if (saved) {
+          try {
+            const data = JSON.parse(saved);
+            driveSeconds = data.driveSeconds || 0;
+            stopSeconds = data.stopSeconds || 0;
+            stopRecords = data.stopRecords || [];
+            speedThreshold = data.speedThreshold || 0.8;
+            distanceThreshold = data.distanceThreshold || 10;
+
+            document.getElementById("speedThreshold").value = speedThreshold;
+            document.getElementById("distanceThreshold").value =
+              distanceThreshold;
+
+            updateDisplay();
+            updateStopRecords();
+          } catch (e) {
+            console.error("載入數據失敗:", e);
+          }
+        }
+      }
+
+      // 儲存數據到localStorage
+      function saveData() {
+        const data = {
+          driveSeconds,
+          stopSeconds,
+          stopRecords,
+          speedThreshold,
+          distanceThreshold,
+          lastSaved: new Date().toISOString(),
+        };
+        localStorage.setItem("drivingData", JSON.stringify(data));
+      }
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 16,
+          center: { lat: 25.033, lng: 121.5654 },
+          styles: [
+            {
+              featureType: "poi",
+              elementType: "labels",
+              stylers: [{ visibility: "off" }],
+            },
+          ],
+        });
+
+        polyline = new google.maps.Polyline({
+          strokeColor: "#2196F3",
+          strokeOpacity: 1.0,
+          strokeWeight: 4,
+          map: map,
+          path: [],
+        });
+
+        if (navigator.geolocation) {
+          watchId = navigator.geolocation.watchPosition(
+            updatePosition,
+            handleLocationError,
+            {
+              enableHighAccuracy: true,
+              maximumAge: 2000,
+              timeout: 10000,
+            }
+          );
+        } else {
+          showNotification("您的瀏覽器不支援GPS定位", "error");
+        }
+
+        setInterval(updateTimer, 1000);
+        loadData();
+
+        // 載入主題設定
+        const savedTheme = localStorage.getItem("theme") || "light";
+        if (savedTheme === "dark") {
+          document.documentElement.setAttribute("data-theme", "dark");
+        }
+      }
+
+      function handleLocationError(error) {
+        let message = "定位失敗: ";
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            message += "使用者拒絕定位請求";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            message += "位置資訊無法取得";
+            break;
+          case error.TIMEOUT:
+            message += "定位請求超時";
+            break;
+          default:
+            message += "未知錯誤";
+        }
+        console.error(message);
+        document.getElementById("currentLocation").textContent = "定位失敗";
+      }
+
+      function updatePosition(position) {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        const speed = position.coords.speed || 0;
+        const accuracy = position.coords.accuracy;
+
+        const currentPos = { lat, lng };
+
+        // 更新當前位置顯示
+        document.getElementById("currentLocation").textContent = `${lat.toFixed(
+          6
+        )}, ${lng.toFixed(6)}`;
+
+        // 如果精度太低，不進行移動判斷
+        if (accuracy > 50) {
+          console.log("GPS精度不足，跳過此次更新");
+          return;
+        }
+
+        // 更新地圖中心和標記
+        if (!currentMarker) {
+          currentMarker = new google.maps.Marker({
+            position: currentPos,
+            map: map,
+            title: "當前位置",
+            icon: {
+              url:
+                "data:image/svg+xml;base64," +
+                btoa(`
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                <circle cx="12" cy="12" r="8" fill="#2196F3" stroke="#fff" stroke-width="2"/>
+                <circle cx="12" cy="12" r="3" fill="#fff"/>
+              </svg>
+            `),
+              scaledSize: new google.maps.Size(24, 24),
+            },
+          });
+        } else {
+          currentMarker.setPosition(currentPos);
+        }
+
+        map.setCenter(currentPos);
+
+        const path = polyline.getPath();
+
+        // 計算與上一個位置的距離
+        let distanceMoved = 0;
+        if (lastPosition) {
+          distanceMoved = calculateDistance(
+            lastPosition.lat,
+            lastPosition.lng,
+            lat,
+            lng
+          );
+        }
+
+        // 綜合速度和距離變化判斷是否在移動
+        const isMoving =
+          speed > speedThreshold || distanceMoved > distanceThreshold;
+
+        if (isMoving) {
+          path.push(currentPos);
+          setDriving(true);
+        } else {
+          setDriving(false);
+        }
+
+        lastPosition = currentPos;
+      }
+
+      // 計算兩點間距離（公尺）
+      function calculateDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371000; // 地球半徑（公尺）
+        const dLat = ((lat2 - lat1) * Math.PI) / 180;
+        const dLng = ((lng2 - lng1) * Math.PI) / 180;
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos((lat1 * Math.PI) / 180) *
+            Math.cos((lat2 * Math.PI) / 180) *
+            Math.sin(dLng / 2) *
+            Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+      }
+
+      function setDriving(isDriving, manual = false) {
+        if (isDriving && !driving) {
+          // 從停車 -> 行車
+          if (stopStart) {
+            const stopEnd = new Date();
+            const duration = Math.floor((stopEnd - stopStart) / 1000);
+            const location = lastPosition
+              ? `${lastPosition.lat.toFixed(4)}, ${lastPosition.lng.toFixed(4)}`
+              : "未知位置";
+
+            stopRecords.push({
+              start: stopStart,
+              end: stopEnd,
+              sec: duration,
+              location: location,
+              id: Date.now(),
+            });
+
+            updateStopRecords();
+            saveData();
+            stopStart = null;
+
+            if (manual) {
+              showNotification("已手動切換為行車狀態", "success");
+            }
+          }
+          updateStatusIndicator(true);
+        } else if (!isDriving && driving) {
+          // 從行車 -> 停車
+          stopStart = new Date();
+          updateStatusIndicator(false);
+
+          if (manual) {
+            showNotification("已手動切換為停車狀態", "success");
+          }
+
+          // 添加停車點標記
+          if (lastPosition) {
+            const stopMarker = new google.maps.Marker({
+              position: lastPosition,
+              map: map,
+              title: `停車點 - ${stopStart.toLocaleString()}`,
+              icon: {
+                url:
+                  "data:image/svg+xml;base64," +
+                  btoa(`
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24">
+                  <circle cx="12" cy="12" r="10" fill="#F44336" stroke="#fff" stroke-width="2"/>
+                  <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">P</text>
+                </svg>
+              `),
+                scaledSize: new google.maps.Size(24, 24),
+              },
+            });
+            stopMarkers.push(stopMarker);
+          }
+        }
+        driving = isDriving;
+        saveData();
+      }
+
+      function updateStatusIndicator(isDriving) {
+        const indicator = document.getElementById("statusIndicator");
+        if (isDriving) {
+          indicator.className = "status-indicator status-driving";
+          indicator.innerHTML =
+            '<div class="status-dot"></div><span>🚗 行車中</span>';
+        } else {
+          indicator.className = "status-indicator status-stopped";
+          indicator.innerHTML =
+            '<div class="status-dot"></div><span>🛑 已停車</span>';
+        }
+      }
+
+      function manualDrive() {
+        setDriving(true, true);
+      }
+
+      function manualStop() {
+        setDriving(false, true);
+      }
+
+      function updateTimer() {
+        if (driving) {
+          driveSeconds++;
+        } else {
+          stopSeconds++;
+        }
+        updateDisplay();
+        if (driveSeconds % 10 === 0 || stopSeconds % 10 === 0) {
+          saveData(); // 每10秒自動保存
+        }
+      }
+
+      function updateDisplay() {
+        document.getElementById("driveTime").textContent =
+          formatTime(driveSeconds);
+        document.getElementById("stopTime").textContent =
+          formatTime(stopSeconds);
+        document.getElementById("stopCount").textContent = stopRecords.length;
+      }
+
+      function formatTime(seconds) {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = seconds % 60;
+        return `${hours.toString().padStart(2, "0")}:${minutes
+          .toString()
+          .padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+      }
+
+      function updateStopRecords() {
+        const tbody = document.getElementById("stopLog");
+        if (stopRecords.length === 0) {
+          tbody.innerHTML =
+            '<tr><td colspan="5" class="no-records">暫無停車記錄</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = stopRecords
+          .map(
+            (record) => `
+        <tr>
+          <td>${record.start.toLocaleString()}</td>
+          <td>${record.end.toLocaleString()}</td>
+          <td>${formatTime(record.sec)}</td>
+          <td>${record.location}</td>
+          <td><button class="delete-btn" onclick="deleteRecord(${
+            record.id
+          })">刪除</button></td>
+        </tr>
+      `
+          )
+          .join("");
+      }
+
+      function deleteRecord(id) {
+        if (confirm("確定要刪除這筆記錄嗎？")) {
+          stopRecords = stopRecords.filter((record) => record.id !== id);
+          updateStopRecords();
+          updateDisplay();
+          saveData();
+          showNotification("記錄已刪除", "success");
+        }
+      }
+
+      function updateSettings() {
+        speedThreshold = parseFloat(
+          document.getElementById("speedThreshold").value
+        );
+        distanceThreshold = parseFloat(
+          document.getElementById("distanceThreshold").value
+        );
+        saveData();
+        showNotification("設定已更新", "info");
+      }
+
+      function centerMap() {
+        if (lastPosition) {
+          map.setCenter(lastPosition);
+          map.setZoom(16);
+        }
+      }
+
+      function reset() {
+        if (confirm("確定要重置所有數據嗎？此操作無法復原！")) {
+          driveSeconds = 0;
+          stopSeconds = 0;
+          stopRecords = [];
+          stopStart = null;
+          driving = false;
+
+          // 清除停車標記
+          stopMarkers.forEach((marker) => marker.setMap(null));
+          stopMarkers = [];
+
+          // 重置軌跡
+          polyline.setPath([]);
+
+          updateDisplay();
+          updateStopRecords();
+          updateStatusIndicator(false);
+          saveData();
+
+          showNotification("數據已重置", "success");
+        }
+      }
+
+      function toggleTheme() {
+        const currentTheme =
+          document.documentElement.getAttribute("data-theme");
+        const newTheme = currentTheme === "dark" ? "light" : "dark";
+
+        document.documentElement.setAttribute("data-theme", newTheme);
+        localStorage.setItem("theme", newTheme);
+
+        showNotification(
+          `已切換到${newTheme === "dark" ? "深色" : "淺色"}主題`,
+          "info"
+        );
+      }
+
+      function showNotification(message, type = "info") {
+        // 移除現有通知
+        const existing = document.querySelector(".notification");
+        if (existing) {
+          existing.remove();
+        }
+
+        const notification = document.createElement("div");
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+
+        document.body.appendChild(notification);
+
+        // 顯示通知
+        setTimeout(() => notification.classList.add("show"), 100);
+
+        // 3秒後隱藏
+        setTimeout(() => {
+          notification.classList.remove("show");
+          setTimeout(() => notification.remove(), 300);
+        }, 3000);
+      }
+
+      // 頁面離開前保存數據
+      window.addEventListener("beforeunload", saveData);
+    </script>
+
+    <!-- Google Maps API -->
+    <script
+      async
+      defer
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBjIA15OBZy9koDtAkdxQRXzKXBVmNFM3c&callback=initMap"
+    ></script>
+  </body>
+</html>
